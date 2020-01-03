@@ -1,0 +1,12 @@
+Note that the file "m16Adef.inc" is not of my own creation and the licensing of
+this project does not apply to it. I am not aware of what it's license is.
+
+
+We assemble simply by issuing the following command (where x.asm is the name of
+our assembly file):
+    avra x.asm
+    
+We flash our micro with the following command (this is assumming our flasher's
+device file is ugen0.2 and hello.hex is the output of avra that we are
+interested in):
+   doas avrdude -p m16 -c usbasp -P/dev/ugen0.2 -U flash:w:hello.hex
