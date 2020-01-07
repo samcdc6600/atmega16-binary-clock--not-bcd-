@@ -6,14 +6,20 @@
 
 
 	;; =====================================================================
-	;; Declarations
-	.def	minAndHour	= r20	= 0b00111100
-	.def	day	= r21	0b00010100
-	.def	temp	= r16	; designate working register r16 as temp
-	.def	inHigh	= r17
-	.def	high	= r18
-	.def	low	= r19
+	;; Definitions
+	.def	secondCount = r17
+	.def	minuteCount = r18
+	.def	hourCount = r19
 
+	.equ	minAndHour = 0b00111100
+	.equ	day = 0b00010100
+	.equ	ddrSecondPins = 0b00111111	; Pins PD0 - PD7 (PD0 - PD5 used)
+	.equ	ddrMinutePins = 0b00111111	; Pins PC7 - PC0 (PC5 - PC0 used)
+	.equ	ddrHourPins = 0b00011111	; Pins PA0 - PA7 (PA0 - PA5 used)
+	.equ	inputPins = 0b00000000	; Pins PB0 - PB7 (PB0 ())
+
+	
+	;; =====================================================================
 	;; Interrupt vector
 	jmp   RESET	; Reset Handler
 	jmp   EXT_INT0	; IRQ0 Handler
@@ -37,29 +43,91 @@
 	jmp   TIM0_COMP	; Timer0 Compare Handler
 	jmp   SPM_RDY	; Store Program Memory Ready Handler;
 
-
-
 	
-RESET:
+RESET:				  ;=============================================
 	ldi	r16, high(RAMEND)	; Main program start
 	out	SPH, r16	; Set Stack Pointer to top of RAM
 	ldi	r16, low(RAMEND)
 	out	SPL, r16
-	
+	; Stack set up now perform the reming initialisation tasks
+	call	INIT
+CONTINUE:
+	call	KEEP_TIME
+	call	DISPLAY_TIME
+	call	ADJUST_TIME
+	rjmp	CONTINUE
+
+
+INIT:				;===============================================
+	call	DISABLE_JTAG
+	clr	secondCount	; Clear the regs we store time in
+	clr	minuteCount
+	clr	hourCount
+
+	ldi	r16, low(ddrSecondPins)
+	out	DDRD, r16	; Set the Data Direction Register for Port D (seconds)
+	out	PortD, secondCount ; Set second pins low
+
+	ldi	r16, low(ddrMinutePins)
 	ldi	r16, 0b11111111
-	out	DDRA, r16 ; Set the Data Direction Registers for port A
-				; to outputs.
-	ldi	r16, 0b00000000
-	out	PortA, r16 ; Set all pins of PortA to 0V
+	out	DDRC, r16	; Set the Data Direction Register for port C (minutes)
+	out	PortC, minuteCount ; Set minute pins low
+	
+	ldi	r16, low(ddrHourPins)
+	out	DDRA, r16	; Set the Data Direction Register for port A (hours)
+	out	PortA, hourCount	; Set hour pins low
+	
 	ldi	r16, 0b00100000
 	out	GICR, r16	; Set external interrupt 2 to be enabled
-	ldi	r17, 0b11111111
 	sei			; Enable interrupts
-REP:
-	out	PortA, r17
-	rjmp	REP
+	ret
 
 
+	;; DISABLE_JTAG dissables the JTAG interface (PC7 - PC2) in software
+	;; within two cycles. This allows the use of the PC7 - PC2 pins as
+	;; general IO while still allowing the chip to be programmed as we have
+	;; not set any fuses. The manual says to set the JTD bit (bit 7
+	;; according to the manual (pg 236) but that does not seem to work.)
+	;; Post #3 on this site: https://www.avrfreaks.net/forum/how-disable-jtag-c
+	;; said to use 0x80 and that does work.
+	;; From the manual "In order to avoid unintentional disabling or
+	;; enabling of the JTAG interface, a timed sequence must be followed
+	;; when changing this bit: The application software must write this bit
+	;; to the desired value twice within four cycles to change its value."
+DISABLE_JTAG:			;===============================================
+	ldi	r16, 0x80
+	out	MCUCSR, r16
+	out	MCUCSR, r16
+	ret
+
+
+KEEP_TIME:		      ;=================================================
+	cpi	secondCount, low(minAndHour) ; Have we counted 60 seconds?
+	brne	SUB_UNIT
+	clr	secondCount	; Start counting the next minute
+	inc	minuteCount
+	
+	cpi	minuteCount, low(minAndHour) ; Have we counted an hour?
+	brne	SUB_UNIT
+	clr	minuteCount	; start counting the next hour
+	inc	hourCount
+
+	cpi	hourCount, low(day) ; Have we counted a day?
+	brne	SUB_UNIT
+	clr	hourCount
+SUB_UNIT:
+	ret
+
+	
+DISPLAY_TIME:			;===============================================
+	out	PortD, secondCount
+	out	PortC, minuteCount
+	out	PortA, hourCount
+	ret
+
+
+ADJUST_TIME:			;===============================================
+	ret
 
 
 
@@ -81,50 +149,8 @@ EE_RDY:		; EEPROM Ready Handler
 ANA_COMP:	; Analog Comparator Handler
 TWSI:		; Two-wire Serial Interface Handler
 EXT_INT2:	; IRQ2 Handler
-	inc	r17
+				; Note that another second has passed
+	inc	secondCount	; Time flies :O :'(
 	reti
 TIM0_COMP:	; Timer0 Compare Handler
 SPM_RDY:	; Store Program Memory Ready Handler;
-	
-
-
-
-	
-
-	;; =====================================================================
-;; 	;; Start of Program
-;; Init:
-;; ;	ser	temp		; Set all bits in temp to 1's.
-;; 	;	clr	temp		; Set all bits in temp to 0's.
-;; 	ldi	low, 0b00000000
-;; 	ldi	high, 0b00000001
-;; 	ldi	inHigh, 0b01000000
-;; 	ldi	temp, 0b11111111	; 1 sets a pin as an output, 0 set's a
-;; 					; pin as an input. Therfore after
-;; 					; applying this pin 1 of whatever set of
-;; 					; pins it was applied to will be set as
-;; 					; an input pin.
-;; 	out 	DDRA, temp		; Set the Data Direction Register for
-;; 					; port A to temp. This sets all pins as
-;; 					; outputs.
-;; 	ldi	temp, 0b00000000
-;; 	out	PortA, temp		; Set all pins of PortA (except 0) to OV
-;; 					; (0 is set to 5V.)
-					
-;; 	ldi	temp, 0b10111111
-;; 	out	DDRD, temp		; Set all pins of PortD to outputs,
-;; 					; except for PA6.
-;; 	clr	temp			; Set all bit's to 0.
-;; 	out	PortD, temp		; Set all pins of PortD to 0V.
-
-;; 	;; =====================================================================
-;; 	;; Main boy of program
-;; Main:;
-;; 	in	temp, PinD		; Copy the state of PortD to temp. If a
-;; 					; pin is high temp position 6 will be 1.
-;; 					; otherwise 0
-;; 	mov	r12, high
-;; 	cpse	temp, inHigh		; Compare, Skip if Equal
-;; 	mov	r12, low		; (if Rd = Rr)PC <- PC + 2 or 3
-;; 	out	PortA, r12
-;; 	rjmp	Main
