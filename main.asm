@@ -177,9 +177,7 @@ ADJUSTING_DELAY:		;===============================================
 	call	SET_ADJUSTING_LEDS
 	call	DEBOUNCE
 WAIT_FOR_USER_INPUT:
-	
 	call	ADJUSTING_PROPER
-
 	cpi	r16, low(dissableAdjust)
 	brne	WAIT_FOR_USER_INPUT
 	sei			; Enable interrupts
@@ -197,7 +195,7 @@ WAIT_FOR_USER_INPUT:
 	nop			; out's, this also gives time for the pin on our
 	nop			; micro to go high. We don't think we need the
 	nop			; nop's but we add them just to make sure.
-	ldi	r16, low(adjustPinsPullups) ;Dissable 1MR on decade counter
+	ldi	r16, low(adjustPinsPullups) ; Dissable 1MR on decade counter
 	out	PortB, r16
 	clr	currentlyAdjusting
 	call	CLEAR_ADJUSTING_LEDS
@@ -296,15 +294,15 @@ ADJUST_TIME_DOWN_PROPER:	;===============================================
 DOWN_SECONDS:
 	dec	secondCount
 	cpi	secondCount, low(maxUnsignedByte)
-	breq	RET_ADJUST_TIME_DOWN_PROPER
-	ldi	secondCount, low(day)
+	brne	RET_ADJUST_TIME_DOWN_PROPER
+	ldi	secondCount, low(minAndHour)
 	dec	secondCount
 	rjmp	RET_ADJUST_TIME_DOWN_PROPER
 	
 DOWN_MINUTES:
 	dec	minuteCount
 	cpi	minuteCount, low(maxUnsignedByte)
-	breq	RET_ADJUST_TIME_DOWN_PROPER
+	brne	RET_ADJUST_TIME_DOWN_PROPER
 	ldi	minuteCount, low(minAndHour)
 	dec	minuteCount
 	rjmp	RET_ADJUST_TIME_DOWN_PROPER
@@ -312,8 +310,8 @@ DOWN_MINUTES:
 DOWN_HOURS:
 	dec	hourCount
 	cpi	hourCount, low(maxUnsignedByte)
-	breq	RET_ADJUST_TIME_DOWN_PROPER
-	ldi	hourCount, low(minAndHour)
+	brne	RET_ADJUST_TIME_DOWN_PROPER
+	ldi	hourCount, low(day)
 	dec	hourCount
 	rjmp	RET_ADJUST_TIME_DOWN_PROPER
 
@@ -404,7 +402,6 @@ TWSI:		; Two-wire Serial Interface Handler
 EXT_INT2:	; IRQ2 Handler
 				; Note that another second has passed
 	inc	secondCount	; Time flies :O :'(
-BUTTON_PRESSED:	
 	reti
 TIM0_COMP:	; Timer0 Compare Handler
 SPM_RDY:	; Store Program Memory Ready Handler;
