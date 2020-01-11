@@ -78,7 +78,8 @@
 	jmp   SPM_RDY	; Store Program Memory Ready Handler;
 
 	
-RESET:				  ;=============================================
+	;; =====================================================================
+RESET:
 	ldi	r16, high(RAMEND)	; Main program start
 	out	SPH, r16	; Set Stack Pointer to top of RAM
 	ldi	r16, low(RAMEND)
@@ -91,8 +92,9 @@ CONTINUE:
 	call	DISPLAY_TIME
 	rjmp	CONTINUE
 
-
-INIT:				;===============================================
+	
+	;; =====================================================================
+INIT:
 	call	DISABLE_JTAG
 	clr	secondCount	; Clear the regs we store time in
 	clr	minuteCount
@@ -124,7 +126,8 @@ INIT:				;===============================================
 	sei			; Enable interrupts
 	ret
 
-
+	
+	;; =====================================================================
 	;; DISABLE_JTAG dissables the JTAG interface (PC7 - PC2) in software.
 	;; This allows the use of the PC7 - PC2 pins as general IO while still
 	;; allowing the chip to be programmed as we have not set any fuses.
@@ -135,16 +138,15 @@ INIT:				;===============================================
 	;; avoid unintentional disabling or enabling of the JTAG interface, a
 	;; timed sequence must be followed when changing this bit: The
 	;; application software must write this bit to the desired value twice
-	;; within four cycles to change its value."
-DISABLE_JTAG:			;===============================================
+DISABLE_JTAG:		    ; within four cycles to change its value."
 	ldi	r16, 0x80
 	out	MCUCSR, r16
 	out	MCUCSR, r16
 	ret
 
 
-	;; Handle time adjustment
-ADJUST:				;===============================================
+	;; =====================================================================
+ADJUST:	; Handle time adjustment
 	;; Note that we only check for 1 pin being high at a time. Pressing
 	;; more then one button simultaniously will not activate time
 	;; adjustment, that is if you can do it fast enough ;)
@@ -161,19 +163,20 @@ PIN_HIGH:
 PIN_LOW:
 	ret
 
-
-READ_ADJUST_PINS:		;===============================================
+	
+	;; =====================================================================
+READ_ADJUST_PINS:
 	in	r16, PinB
-	andi	r16, noInt2Or1Mr
+	andi	r16, low(noInt2Or1Mr)
 	ret
 
 
+	;; =====================================================================
 	;; An adjustment input has gone high. Alow time for adjustment and
-	;; Call adjust proper
-ADJUSTING_DELAY:		;===============================================
+ADJUSTING_DELAY:		; Call adjust proper
 	cli			; Dissable interrupts
 	;; Always start on minutes
-	ldi	currentlyAdjusting, adjustMinutesLEDIndicatorPin
+	ldi	currentlyAdjusting, low(adjustMinutesLEDIndicatorPin)
 	call	SET_ADJUSTING_LEDS
 	call	DEBOUNCE
 WAIT_FOR_USER_INPUT:
@@ -198,13 +201,13 @@ WAIT_FOR_USER_INPUT:
 	ldi	r16, low(adjustPinsPullups) ; Dissable 1MR on decade counter
 	out	PortB, r16
 	clr	currentlyAdjusting
-	call	CLEAR_ADJUSTING_LEDS
+	call	DISPLAY_TIME
 	call	DEBOUNCE
 	ret
 
 
-	;; Check adjustment inputs and adjust time accordingly
-ADJUSTING_PROPER:		;===============================================
+	;; =====================================================================
+ADJUSTING_PROPER:	; Check adjustment inputs and adjust time accordingly
 	call	READ_ADJUST_PINS
 	cpi	r16, low(dissableAdjust)
 	;; Return to ADJUSTING_DELAY if dissableAdjust is pressed
@@ -221,20 +224,24 @@ ADJUSTING_PROPER:		;===============================================
 CHANGE_TIME_SELECTION:
 	call	CHANGE_TIME_SELECTION_PROPER
 	call	DEBOUNCE
-	rjmp	RET_FROM_ADJUSTING_PROPER
+	rjmp	RET_FROM_ADJUSTING_PROPER_UPDATE_LEDS
 ADJUST_TIME_UP:
 	call	ADJUST_TIME_UP_PROPER
 	call	DEBOUNCE
-	rjmp	RET_FROM_ADJUSTING_PROPER
+	rjmp	RET_FROM_ADJUSTING_PROPER_UPDATE_LEDS
 ADJUST_TIME_DOWN:
 	call	ADJUST_TIME_DOWN_PROPER
 	call	DEBOUNCE
+
+RET_FROM_ADJUSTING_PROPER_UPDATE_LEDS:
+	call	DISPLAY_TIME
+	call	SET_ADJUSTING_LEDS 
 	
 RET_FROM_ADJUSTING_PROPER:
 	ret
 
-
-CHANGE_TIME_SELECTION_PROPER:	;===============================================
+	;; =====================================================================
+CHANGE_TIME_SELECTION_PROPER:
 	cpi	currentlyAdjusting, low(adjustHoursLEDIndicatorPin)
 	breq	CYCLE_BACK_AROUND
 	ror	currentlyAdjusting
@@ -242,12 +249,12 @@ CHANGE_TIME_SELECTION_PROPER:	;===============================================
 CYCLE_BACK_AROUND:
 	ldi	currentlyAdjusting, low(adjustSecondsLEDIndicatorPin)
 RET_FROM_CHANGE_TIME_SELECTION_PROPER:
-	call	CLEAR_ADJUSTING_LEDS
 	call	SET_ADJUSTING_LEDS
 	ret
 
-
-ADJUST_TIME_UP_PROPER:		;===============================================
+	
+	;; =====================================================================
+ADJUST_TIME_UP_PROPER:
 	cpi	currentlyAdjusting, low(adjustSecondsLEDIndicatorPin)
 	breq	UP_SECONDS
 	cpi	currentlyAdjusting, low(adjustMinutesLEDIndicatorPin)
@@ -277,12 +284,11 @@ UP_HOURS:
 	clr	hourCount
 	
 RET_ADJUST_TIME_UP_PROPER:
-	;call	SET_ADJUSTING_LEDS 
-	call	DISPLAY_TIME
 	ret
 
-
-ADJUST_TIME_DOWN_PROPER:	;===============================================
+	
+	;; =====================================================================
+ADJUST_TIME_DOWN_PROPER:
 	cpi	currentlyAdjusting, low(adjustSecondsLEDIndicatorPin)
 	breq	DOWN_SECONDS
 	cpi	currentlyAdjusting, low(adjustMinutesLEDIndicatorPin)
@@ -315,25 +321,20 @@ DOWN_HOURS:
 	dec	hourCount
 	rjmp	RET_ADJUST_TIME_DOWN_PROPER
 
-
 RET_ADJUST_TIME_DOWN_PROPER:
-	call	DISPLAY_TIME
 	ret
 
-
-SET_ADJUSTING_LEDS:		;===============================================
-	or	hourCount, currentlyAdjusting
+	
+	;; =====================================================================
+SET_ADJUSTING_LEDS:
+	mov	r16, hourCount
+	or	r16, currentlyAdjusting
 	out	PortA,	hourCount
 	ret
 	
 
-CLEAR_ADJUSTING_LEDS:		;===============================================
-	andi	hourCount, low(noAdjustLEDs)
-	out	PortA, hourCount
-	ret
-
-
-DEBOUNCE:			;===============================================
+	;; =====================================================================
+DEBOUNCE:
 	clr	r31
 	clr	r30
 	clr	r29
@@ -357,7 +358,8 @@ DEBOUNCE_LOOP_2_START:
 	ret
 
 
-KEEP_TIME:		      ;=================================================
+	;; =====================================================================
+KEEP_TIME:
 	cpi	secondCount, low(minAndHour) ; Have we counted 60 seconds?
 	brlo	SUB_UNIT
 	clr	secondCount	; Start counting the next minute
@@ -374,8 +376,9 @@ KEEP_TIME:		      ;=================================================
 SUB_UNIT:
 	ret
 
-	
-DISPLAY_TIME:			;===============================================
+
+	;; =====================================================================
+DISPLAY_TIME:
 	out	PortD, secondCount
 	out	PortC, minuteCount
 	out	PortA, hourCount
