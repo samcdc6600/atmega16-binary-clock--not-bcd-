@@ -172,6 +172,15 @@ READ_ADJUST_PINS:		;===============================================
 	;; Call adjust proper
 ADJUSTING_DELAY:		;===============================================
  	cli			; Dissable interrupts
+	;; We do this here and not after "brne	WAIT_FOR_USER_INPUT" because
+	;; interrups seem to be re-enabled (when PB0 is low) randomly after
+	;; the PB0 pin is held low or strobed enough when adjusting minutes,
+	;; causing the seconds count to increment. We cannot figure it out.
+	;; We think it may even be an electrical problem although we hope not.
+	;; It seems to take different times for different chips :/
+	;; Enable 1MR on decade counter
+	ldi	r16, low(adjustPinsPullupsMR1High)
+	out	PortB, r16
 	;; Always start on minutes
 	ldi	currentlyAdjusting, adjustMinutesLEDIndicatorPin
 	call	SET_ADJUSTING_LEDS
@@ -180,7 +189,6 @@ WAIT_FOR_USER_INPUT:
 	call	ADJUSTING_PROPER
 	cpi	r16, low(dissableAdjust)
 	brne	WAIT_FOR_USER_INPUT
-
 	;; Int2 is triggered when the signal goes low, it starts high when reset
 	;; and stays there for 1/2 of a second. So we add roughly half a seconds
 	;; worth of debounce before strobing 1MR and enabling interrupts.
@@ -195,10 +203,7 @@ WAIT_FOR_USER_INPUT:
 	call	DEBOUNCE
 	call	DEBOUNCE
 	call	DEBOUNCE
-	;; Enable 1MR on decade counter
-	ldi	r16, low(adjustPinsPullupsMR1High)
-	out	PortB, r16
-	call	DEBOUNCE		    ; Put one of the debounces here to
+	call	DEBOUNCE
 	;; allow ample time for the pin to go high.
 	sei			; Enable interrupts
 	ldi	r16, low(adjustPinsPullups) ; Dissable 1MR on decade counter
@@ -274,12 +279,6 @@ UP_MINUTES:
 	cpi	minuteCount, low(minAndHour)
 	brlo	RET_ADJUST_TIME_UP_PROPER
 	clr	minuteCount
-	cli			; Interrups seem to be re-enabled randomly after
-	;; the pin that leads to this execution path is held low or strobed
-	;; enough (but only when the pin is low). We cannot figour it out. We
-	;; add this as to at least try to mittigate the effects. We think it
-	;; may even be an electrical problem although we hope not. It seems to
-	;; take different times for different chips :/
 	rjmp	RET_ADJUST_TIME_UP_PROPER
 	
 UP_HOURS:
