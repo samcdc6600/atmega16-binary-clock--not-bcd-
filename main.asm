@@ -171,7 +171,7 @@ READ_ADJUST_PINS:		;===============================================
 	;; An adjustment input has gone high. Alow time for adjustment and
 	;; Call adjust proper
 ADJUSTING_DELAY:		;===============================================
-	cli			; Dissable interrupts
+ 	cli			; Dissable interrupts
 	;; Always start on minutes
 	ldi	currentlyAdjusting, adjustMinutesLEDIndicatorPin
 	call	SET_ADJUSTING_LEDS
@@ -180,25 +180,30 @@ WAIT_FOR_USER_INPUT:
 	call	ADJUSTING_PROPER
 	cpi	r16, low(dissableAdjust)
 	brne	WAIT_FOR_USER_INPUT
-	sei			; Enable interrupts
+
+	;; Int2 is triggered when the signal goes low, it starts high when reset
+	;; and stays there for 1/2 of a second. So we add roughly half a seconds
+	;; worth of debounce before strobing 1MR and enabling interrupts.
+	;; With	debounceFactor0 = 0b11111111, debounceFactor1 = 0b11111000 and
+	;; debounceFactor2 = 0b00000001 we have:
+	;; (1,000,000 / (256 * 248 * 1)) / 2, which equals 7.8. So we call
+	;; debounce 8 times.
+	call	DEBOUNCE
+	call	DEBOUNCE
+	call	DEBOUNCE
+	call	DEBOUNCE
+	call	DEBOUNCE
+	call	DEBOUNCE
+	call	DEBOUNCE
 	;; Enable 1MR on decade counter
 	ldi	r16, low(adjustPinsPullupsMR1High)
 	out	PortB, r16
-	;; From a quick look at the data sheet we think that our decade counter
-	;; (CD74HCT390E) can handle frequencies upto 6MHz at 2V and 25 deg C and
-	;; upto 30MHz at 4 - 5V at 25 deg C (we are using 3.3V for the chips,
-	nop			; with the exception of the input to 1MR (as
-	nop			; our micro runs on 5V.) We are not sure if this
-	nop			; is bad, it seems to work however.) Each nop
-	nop			; takes 1 cycle so after 8 there should be more
-	nop	      		; then (ldi) (1 / 125000)s between the two
-	nop			; out's, this also gives time for the pin on our
-	nop			; micro to go high. We don't think we need the
-	nop			; nop's but we add them just to make sure.
+	call	DEBOUNCE		    ; Put one of the debounces here to
+	;; allow ample time for the pin to go high.
+	sei			; Enable interrupts
 	ldi	r16, low(adjustPinsPullups) ; Dissable 1MR on decade counter
 	out	PortB, r16
 	clr	currentlyAdjusting
-	call	DEBOUNCE
 	ret
 
 
@@ -263,12 +268,18 @@ UP_SECONDS:
 	brlo	RET_ADJUST_TIME_UP_PROPER
 	clr	secondCount
 	rjmp	RET_ADJUST_TIME_UP_PROPER
-	
+
 UP_MINUTES:
 	inc	minuteCount
 	cpi	minuteCount, low(minAndHour)
 	brlo	RET_ADJUST_TIME_UP_PROPER
 	clr	minuteCount
+	cli			; Interrups seem to be re-enabled randomly after
+	;; the pin that leads to this execution path is held low or strobed
+	;; enough (but only when the pin is low). We cannot figour it out. We
+	;; add this as to at least try to mittigate the effects. We think it
+	;; may even be an electrical problem although we hope not. It seems to
+	;; take different times for different chips :/
 	rjmp	RET_ADJUST_TIME_UP_PROPER
 	
 UP_HOURS:
