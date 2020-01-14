@@ -27,8 +27,8 @@
 	.equ	ddrHourAndAdjustLEDIndicatorPins = 0b11111111
 	;; For changing the time. Pins PB0 - PB7 (PB0, PB1, PB3 and PB4 used as
 	.equ	ddrAdjustPins = 0b00100000 ; input and PB5 used as output
-	;; Enable the pullups for PA (except for PA2 (as it is active high) and
-	;; PA5 (we set this low as it is used to toggle master reset 1 (1mr) on
+	;; Enable the pullups for Pb (except for PB2 (as it is active high) and
+	;; PB5 (we set this low as it is used to toggle master reset 1 (1mr) on
 	;; the decade counter the ocsilator is connected to (it is active high))
 	.equ	adjustPinsPullups = 0b11011011 ; ocsilator)
 	.equ	adjustPinsPullupsMR1High = 0b11111011
