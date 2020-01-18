@@ -21,7 +21,7 @@
 	;; worry about pull ups to save power on the pins we are not actually
 	;; using, that is assuming it works like that :)
 	.equ	ddrSecondPins = 0b11111111	; Pins PD0 - PD7 (PD0 - PD5 used)
-	.equ	ddrMinutePins = 0b11111111	; Pins PC7 - PC0 (PC5 - PC0 used)
+	.equ	ddrMinutePins = 0b11111111 ; Pins PC7 - PC0 (PC5 - PC0 used)
 	;; Pins PA0 - PA7 (PA0 - PA4 used for hours and PA5 - PA7 used for
 	;; adjust LED Indicator Pins)
 	.equ	ddrHourAndAdjustLEDIndicatorPins = 0b11111111
@@ -322,8 +322,6 @@ DOWN_HOURS:
 	brne	RET_ADJUST_TIME_DOWN_PROPER
 	ldi	hourCount, low(day)
 	dec	hourCount
-	rjmp	RET_ADJUST_TIME_DOWN_PROPER
-
 
 RET_ADJUST_TIME_DOWN_PROPER:
 	ret
