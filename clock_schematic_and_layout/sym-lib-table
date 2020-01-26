@@ -1,0 +1,3 @@
+(sym_lib_table
+  (lib (name "clock_schematic_and_layout-rescue")(type "Legacy")(uri "${KIPRJMOD}/clock_schematic_and_layout-rescue.lib")(options "")(descr ""))
+)
